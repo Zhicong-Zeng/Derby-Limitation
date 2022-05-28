@@ -5,13 +5,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
- 
-import java.io.IOException;
-import java.io.Writer;
 
-import org.apache.derby.impl.tools.planexporter.AccessDatabase;
-import org.apache.derby.impl.tools.planexporter.CreateHTMLFile;
-import org.apache.derby.impl.tools.planexporter.CreateXMLFile;
+
 
 /**
  * Hello world!
@@ -19,6 +14,7 @@ import org.apache.derby.impl.tools.planexporter.CreateXMLFile;
  */
 public class App {
     Connection connDerby;
+    String dbUrl = "jdbc:derby:Derby;create=true";
     
     public static void main(String[] args) throws SQLException {
         App appDerby = new App();
@@ -32,7 +28,6 @@ public class App {
     public void connectionDerby() throws SQLException {
         // URL format is
         // jdbc:derby:<local directory to save data>
-        String dbUrl = "jdbc:derby:Derby;create=true";
         connDerby = DriverManager.getConnection(dbUrl, "root", "root");
     }
 
@@ -112,12 +107,47 @@ public class App {
         stmt.executeUpdate("Drop Table test3");
     }
 
-
+    //https://db.apache.org/derby/docs/10.6/tuning/ctun_xplain_style.html
+    //https://performancetestexpert.wordpress.com/category/derby/
     public void testExportPlan() throws SQLException {
         Statement stmt = connDerby.createStatement();
 
-        String dbUrl = "jdbc:derby:Derby;create=true";
+        //turn on RUNTIMESTATISTICS for connection:
+        stmt.execute("CALL SYSCS_UTIL.SYSCS_SET_RUNTIMESTATISTICS(1)");
+        stmt.execute("CALL SYSCS_UTIL.SYSCS_SET_STATISTICS_TIMING(1)");
+        //Indicate that statistics information should be captured into
+        stmt.execute("CALL SYSCS_UTIL.SYSCS_SET_XPLAIN_SCHEMA('MYSCHEMA')");
+        //stmt.execute("call SYSCS_UTIL.SYSCS_SET_XPLAIN_MODE(1)");
+        //stmt.execute("call syscs_util.syscs_set_xplain_mode(1)");
 
-        //AccessDatabase access = new AccessDatabase(dbUrl, "root", "root");
+        //execute queries, step through result sets, perform application processing
+
+        // drop table
+        stmt.executeUpdate("Drop Table test1");
+
+        // create table
+        stmt.executeUpdate("Create table test1 (id int primary key, name varchar(30))");
+        
+        // insert 10,000 rows
+        for(int i = 1; i <= 10; i++){
+            stmt.executeUpdate("insert into test1 values ("+i+",'tom')");
+        }
+        
+        // query
+        stmt.executeQuery("SELECT * FROM test1");
+
+        //Turn off runtime statistics:
+        stmt.execute("VALUES SYSCS_UTIL.SYSCS_GET_RUNTIMESTATISTICS()");
+        stmt.execute("CALL SYSCS_UTIL.SYSCS_SET_RUNTIMESTATISTICS(0)");
+
+        //query
+        ResultSet rs = stmt.executeQuery("select stmt_text, xplain_time from myschema.sysxplain_statements order by xplain_time");
+    
+        // print out query result
+        while (rs.next()) {
+            System.out.printf("%s\t%s\n", rs.getString("stmt_text"), rs.getTime("xplain_time"));
+        }
+
+        
     }
 }
