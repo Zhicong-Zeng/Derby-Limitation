@@ -5,6 +5,13 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+ 
+import java.io.IOException;
+import java.io.Writer;
+
+import org.apache.derby.impl.tools.planexporter.AccessDatabase;
+import org.apache.derby.impl.tools.planexporter.CreateHTMLFile;
+import org.apache.derby.impl.tools.planexporter.CreateXMLFile;
 
 /**
  * Hello world!
@@ -19,9 +26,7 @@ public class App {
         //appDerby.testRows();
         //appDerby.testColumns();
         //appDerby.testConstraintName();
-
-        // appMysql.connectionMysql();
-        mysqltestRows();
+        appDerby.testExportPlan();
     }
 
     public void connectionDerby() throws SQLException {
@@ -30,25 +35,6 @@ public class App {
         String dbUrl = "jdbc:derby:Derby;create=true";
         connDerby = DriverManager.getConnection(dbUrl, "root", "root");
     }
-
-    // public void connectionMysql() throws SQLException {
-    //     // URL format is
-    //     // jdbc:derby:<local directory to save data>
-    //     try (Connection connMysql = DriverManager.getConnection(
-    //         "jdbc:mysql://127.0.0.1:3306/test", "root", "password")) {
-
-    //         if (connMysql != null) {
-    //             System.out.println("Connected to the database!");
-    //         } else {
-    //             System.out.println("Failed to make connection!");
-    //         }
-
-    //     } catch (SQLException e) {
-    //         System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    //     } catch (Exception e) {
-    //         e.printStackTrace();
-    //     }
-    // }
 
     //MaxRows is unlimitation accoring to disk
     public void testRows() throws SQLException {
@@ -108,7 +94,10 @@ public class App {
     //Maximum 128 characters in a constraint name 
     public void testConstraintName() throws SQLException {
         Statement stmt = connDerby.createStatement();
-    
+        
+        // drop table
+        stmt.executeUpdate("Drop Table test3");
+        
         // create table
         stmt.executeUpdate("Create table test3 (id int primary key, column_1 varchar(5))");
 
@@ -123,31 +112,12 @@ public class App {
         stmt.executeUpdate("Drop Table test3");
     }
 
-    //MaxRows is unlimitation accoring to disk
-    public static void mysqltestRows() throws SQLException {
-        String createsql = "CREATE TABLE REGISTRATION " +
-        "(id INTEGER not NULL, " +
-        " first VARCHAR(255), " + 
-        " last VARCHAR(255), " + 
-        " age INTEGER, " + 
-        " PRIMARY KEY ( id ))"; 
 
-        String insertsql = " insert into REGISTRATION (id , first, last, age)"
-                         + " values (1, 1, 1, 1)";
+    public void testExportPlan() throws SQLException {
+        Statement stmt = connDerby.createStatement();
 
-        String selectsql = "SELECT * FROM REGISTRATION";
+        String dbUrl = "jdbc:derby:Derby;create=true";
 
-        try(Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/test", "root", "root");
-            Statement stmt = conn.createStatement())
-        {		     
-            stmt.executeQuery(createsql);
-            stmt.executeQuery(insertsql);
-            ResultSet rs = stmt.executeQuery(selectsql);
-            while (rs.next()) {
-                System.out.printf("%d\t%s\n", rs.getInt("id"), rs.getString("column_1"), rs.getString("column_2"), rs.getInt("age"));
-            }	  
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } 
+        //AccessDatabase access = new AccessDatabase(dbUrl, "root", "root");
     }
 }
