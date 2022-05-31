@@ -25,8 +25,8 @@ public class App {
         //appDerby.testColumns();
         //appDerby.testConstraintName();
         //appDerby.testExportPlan();
-        appDerby.testDirtyRead();
-        //appDerby.testDeadLock();
+        //appDerby.testDirtyRead();
+        appDerby.testDeadLock();
     }
 
     public void connectionDerby() throws SQLException {
@@ -47,7 +47,7 @@ public class App {
         stmt.executeUpdate("Create table test1 (id int primary key, name varchar(30))");
 
         // insert 10,000 rows
-        for(int i = 1; i <= 10000; i++){
+        for(int i = 1; i <= 3; i++){
         stmt.executeUpdate("insert into test1 values ("+i+",'tom')");
         }
 
@@ -66,7 +66,7 @@ public class App {
         Statement stmt = connDerby.createStatement();
     
         // drop table
-        //stmt.executeUpdate("Drop Table test2");
+        stmt.executeUpdate("Drop Table test2");
     
         // create table
         stmt.executeUpdate("Create table test2 (id int primary key, column_1 varchar(5))");
@@ -221,8 +221,8 @@ public class App {
 
         Statement stmt2 = connDerby.createStatement();
         // Update record id = 1
-        //stmt2.execute("LOCK TABLE BankDetailTbl IN EXCLUSIVE MODE");
-        stmt2.execute("LOCK TABLE BankDetailTbl IN SHARE  MODE");
+        stmt2.execute("LOCK TABLE BankDetailTbl IN EXCLUSIVE MODE");
+        //stmt2.execute("LOCK TABLE BankDetailTbl IN SHARE  MODE");
         // Update record id = 1
         stmt2.execute("INSERT INTO BankDetailTbl VALUES (2 , '22222', 'Betty H. Bonds', 60)");   
         //connDerby.commit();    
@@ -240,6 +240,6 @@ public class App {
         // while (rs.next()) {
         //     System.out.printf("%s\t%s\t%s\t%s\n", rs.getInt("id"), rs.getString("AccountNumber"), rs.getString("ClientName"), rs.getInt("Balance"));
         // }
-         
+        System.out.println("Success to pass");
     }
 }
