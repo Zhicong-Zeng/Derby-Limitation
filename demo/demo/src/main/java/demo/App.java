@@ -5,6 +5,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
 
 
 
@@ -14,21 +15,25 @@ import java.sql.Statement;
  */
 public class App {
     Connection connDerby;
+    Connection connDerby2;
     String dbUrl = "jdbc:derby:Derby;create=true";
     
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws SQLException,InterruptedException {
         App appDerby = new App();
         appDerby.connectionDerby();
         //appDerby.testRows();
         //appDerby.testColumns();
         //appDerby.testConstraintName();
-        appDerby.testExportPlan();
+        //appDerby.testExportPlan();
+        appDerby.testDirtyRead();
+        //appDerby.testDeadLock();
     }
 
     public void connectionDerby() throws SQLException {
         // URL format is
         // jdbc:derby:<local directory to save data>
         connDerby = DriverManager.getConnection(dbUrl, "root", "root");
+        connDerby2 = DriverManager.getConnection(dbUrl, "root", "root");
     }
 
     //MaxRows is unlimitation accoring to disk
@@ -61,7 +66,7 @@ public class App {
         Statement stmt = connDerby.createStatement();
     
         // drop table
-        stmt.executeUpdate("Drop Table test2");
+        //stmt.executeUpdate("Drop Table test2");
     
         // create table
         stmt.executeUpdate("Create table test2 (id int primary key, column_1 varchar(5))");
@@ -147,7 +152,94 @@ public class App {
         while (rs.next()) {
             System.out.printf("%s\t%s\n", rs.getString("stmt_text"), rs.getTime("xplain_time"));
         }
+    }
 
+
+    public void testDirtyRead() throws SQLException {
+        //Turn off JDBC setAutoCommit method
+        connDerby.setAutoCommit(false);
         
+        Statement stmt = connDerby.createStatement();
+        // drop table
+        stmt.execute("Drop Table BankDetailTbl");
+        // create table
+        stmt.execute("Create table BankDetailTbl (Id INT PRIMARY KEY, AccountNumber VARCHAR(40), ClientName VARCHAR(100), Balance INT)");
+        //Set waittime = 2 second
+        //stmt.execute("CALL SYSCS_UTIL.SYSCS_SET_DATABASE_PROPERTY('derby.locks.waitTimeout', '2')");
+        // insert a data row
+        stmt.execute("INSERT INTO BankDetailTbl VALUES (1 , '7Y290394', 'Betty H. Bonds', 78)");
+        // commit the above transactions
+        connDerby.commit();
+        //stmt.close();
+        
+
+        Statement stmt2 = connDerby2.createStatement();
+        // Update record id = 1
+        stmt2.execute("UPDATE BankDetailTbl SET Balance = 45 WHERE AccountNumber = '7Y290394'");
+        // Update record id = 1
+        stmt2.execute("UPDATE BankDetailTbl SET Balance = 30 WHERE AccountNumber = '7Y290394'");    
+        connDerby2.rollback();    
+        stmt2.close();
+
+        //Thread.sleep(3000);
+
+        //stmt = connDerby.createStatement();
+        // Query-2
+        ResultSet rs = stmt.executeQuery("SELECT * FROM BankDetailTbl");
+        // print out query result
+        while (rs.next()) {
+            System.out.printf("%s\t%s\t%s\t%s\t", rs.getInt("id"), rs.getString("AccountNumber"), rs.getString("ClientName"), rs.getInt("Balance"));
+        }
+    }
+
+
+    public void testDeadLock() throws SQLException, InterruptedException {
+        //Turn off JDBC setAutoCommit method
+        connDerby.setAutoCommit(false);
+        connDerby2.setAutoCommit(false);
+        connDerby.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        
+        
+        Statement stmt1 = connDerby.createStatement();
+        //Set waittime = 2 second
+        stmt1.execute("CALL SYSCS_UTIL.SYSCS_SET_DATABASE_PROPERTY('derby.locks.waitTimeout', '2')");
+
+        // drop table
+        stmt1.execute("Drop Table BankDetailTbl");
+        // create table
+        stmt1.execute("Create table BankDetailTbl (Id INT PRIMARY KEY, AccountNumber VARCHAR(40), ClientName VARCHAR(100), Balance INT)");
+        // insert a data row
+        stmt1.execute("INSERT INTO BankDetailTbl VALUES (1 , '7Y290394', 'Betty H. Bonds', 78)");
+        connDerby.commit();
+
+        //stmt1.execute("LOCK TABLE BankDetailTbl IN EXCLUSIVE MODE");
+        stmt1.execute("LOCK TABLE BankDetailTbl IN SHARE  MODE");
+        // commit the above transactions
+        //connDerby.commit();
+        // stmt1.close();
+        
+
+        Statement stmt2 = connDerby.createStatement();
+        // Update record id = 1
+        //stmt2.execute("LOCK TABLE BankDetailTbl IN EXCLUSIVE MODE");
+        stmt2.execute("LOCK TABLE BankDetailTbl IN SHARE  MODE");
+        // Update record id = 1
+        stmt2.execute("INSERT INTO BankDetailTbl VALUES (2 , '22222', 'Betty H. Bonds', 60)");   
+        //connDerby.commit();    
+        // stmt.close();
+
+        //Thread.sleep(3000);
+
+        Statement stmt3 = connDerby2.createStatement();
+        // Query-2
+        //stmt3.execute("DELETE FROM BankDetailTbl WHERE AccountNumber = '7Y290394'");    
+        //stmt3.execute("INSERT INTO BankDetailTbl VALUES (3, '22222', 'Betty H. Bonds', 60)"); 
+        ResultSet rs = stmt3.executeQuery("SELECT * FROM BankDetailTbl");
+        // print out query result
+        // connDerby2.commit();  
+        // while (rs.next()) {
+        //     System.out.printf("%s\t%s\t%s\t%s\n", rs.getInt("id"), rs.getString("AccountNumber"), rs.getString("ClientName"), rs.getInt("Balance"));
+        // }
+         
     }
 }
